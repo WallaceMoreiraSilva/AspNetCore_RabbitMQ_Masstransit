@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -21,10 +22,29 @@ namespace OrderPublisher
         }
 
         public IConfiguration Configuration { get; }
-
-        // This method gets called by the runtime. Use this method to add services to the container.
+        
         public void ConfigureServices(IServiceCollection services)
         {
+            //Inclui o serciço do MassTransit no conteiner do Asp .Net Core	
+            services.AddMassTransit(x =>
+            {
+                //Cria um novo service bus usando o RabbitMQ local e definindo a conexão, passando
+                //os paramentros para o usuario e senha padrão
+                x.AddBus(provider => Bus.Factory.CreateUsingRabbitMq(config =>
+                {
+                    config.UseHealthCheck(provider);
+                    config.Host(new Uri("rabbitmq://localhost"), h =>
+                    {
+                        h.Username("guest");
+                        h.Password("guest");
+            
+                    });
+                }));
+            });
+
+            //Inclui o serviço do hosted do MassTransit que inicia e para de
+            //forma automatica o service bus
+            services.AddMassTransitHostedService();
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
@@ -32,8 +52,7 @@ namespace OrderPublisher
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "OrderPublisher", Version = "v1" });
             });
         }
-
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+       
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
